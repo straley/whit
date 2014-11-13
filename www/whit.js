@@ -59,17 +59,35 @@ function Whit(inputText, sendButton, outputPane) {
       }
     });
     
-    console.log(selectedOutcome);
-    console.log(selectedOutcome.intent);
-    
     switch(selectedOutcome.intent) {
       case "location_query":
         new LocationQuery(self, selectedOutcome)
         break;
       default:
         // unable to match intent
-        console.log('intent not found: ' + JSON.stringify(intent));
+        // console.log('intent not found: ' + JSON.stringify(intent));
         break;
+    }
+  };
+  
+  this.loadMessage = function(id, parameters) {
+    if (__messages[id]) {
+      var keys = Object.keys(parameters);
+      var p = keys.sort().join("+");
+      if (__messages[id][p]) {
+        var options = __messages[id][p];
+        var i = Math.floor(Math.random() * options.length);
+        var message = options[i];
+        
+        for (var k=0; k<keys.length; k++) {
+          var re = new RegExp("%" + keys[k] + "%", 'g');
+          message = message.replace(re, parameters[keys[k]]);
+        }
+        
+        return message;
+      }
+    } else {
+      return "I'm at a loss for words.";
     }
   };
 }
