@@ -79,6 +79,7 @@ LocationQuery.prototype.fetchNextLocation = function() {
 
 LocationQuery.prototype.processInquiry = function() {
   var self = this;
+  console.log(self.outcome.entities);
   if (this.outcome.entities.inquiry_mode) {
 
     $.each(this.outcome.entities.inquiry_mode, function(i, inquiry_mode){
@@ -95,29 +96,96 @@ LocationQuery.prototype.processInquiry = function() {
           }
           
           var messageParameters = {};
-          if (dateTime) messageParameters.date = moment(dateTime.from).calendar();
-          if (dateTime.to) messageParameters.date += " until " + moment(dateTime.to).calendar();
+          messageParameters.date = self.whit.naturalDateRange(dateTime.from, dateTime.to);
+          
+          //if (dateTime) messageParameters.date = moment(dateTime.from).calendar();
+          //if (dateTime.to) messageParameters.date += " until " + moment(dateTime.to).calendar();
           if (shortName) messageParameters.location = shortName;
           var msg = self.whit.loadMessage('forecast_lookup', messageParameters);
-          console.log(self.outcome.entities);
           console.log(msg);
           
           //to-do put elsewhere
           var weatherRanks = {
-            coverage: ['slight chance', 'chance', 'likely', 'definitely']
+            coverage: ['isolated', 'slight chance', 'scattered', 'patchy', 'periods of', 'chance', 'likely', 'numerous', 'occasional', 'areas', 'intermittent', 'definitely', 'widespread', 'frequent'],
+            coverageBefore: [' a chance of an isolated', ' a slight chance of', ' scattered', ' patchy', ' periods of', ' a chance of', '', ' numerous', ' occasional', ' areas of', ' intermittent', '', ' widespread', ' frequent'],
+            coverageAfter: ['', '', '', '', '', '', ' likely', '', '', '', '', ' definitely', '', ''],
+            intensity: ['very light', 'light', 'moderate', 'heavy']
           };
           
           
           $.getJSON("/api/weather/forecast/" + self.locationsCoded[0].lat + "/" + self.locationsCoded[0].lon + "/" + dateTime.from + "/" + dateTime.to, function(data){
-            switch(self.outcome.entities.inquiry_event[0].value) {
-              case 'snow':
-                $.each(data.parameters['weather-type-coverage-and-intensity'].values, function(i,v){
-                  console.log(v);  
-                });
-                
-                
-                break;
-            }             
+            if (data.parameters) {
+              switch(self.outcome.entities.inquiry_event[0].value) {
+                case 'snow':
+                case 'rain':
+                case 'drizzle':
+                case 'sleet':
+                case 'ice pellets':
+                  
+                  
+                  var timeLayout = data.parameters['weather-type-coverage-and-intensity'].timeLayout;
+                  var lookup = self.outcome.entities.inquiry_event[0].value;
+                  if (lookup == "sleet") lookup = "ice pellets";
+                  
+                  var maxCoverage = -1;
+                  var maxCoverageIntensity = -1;
+                  var maxCoverageType = "";
+                  var maxIntensity = -1;
+                  var maxIntensityCoverage = -1;
+                  var maxIntensityType = "";
+                  var totalTimes = 0;
+                  var matchTimes = 0;
+                  var descriptor = "";
+                  $.each(data.parameters['weather-type-coverage-and-intensity'].values, function(i,v){
+                    var time = data.timeRanges[timeLayout][i];
+                    totalTimes++;
+                    if (v.weatherType && v.weatherType.indexOf(lookup)>-1) {
+                      matchTimes++;
+                      if (weatherRanks.coverage.indexOf(v.coverage) >= maxCoverage) {
+                        maxCoverage = weatherRanks.coverage.indexOf(v.coverage);
+                        maxCoverageType = v.weatherType;
+                        if (weatherRanks.intensity.indexOf(v.intensity) >= maxCoverageIntensity) maxCoverageIntensity = weatherRanks.intensity.indexOf(v.intensity);
+                      }
+
+                      if (weatherRanks.intensity.indexOf(v.intensity) >= maxIntensity) {
+                        maxIntensity = weatherRanks.intensity.indexOf(v.intensity);
+                        if (weatherRanks.coverage.indexOf(v.coverage) >= maxIntensityCoverage) maxIntensityCoverage = weatherRanks.coverage.indexOf(v.coverage);
+                        maxIntensityType = v.weatherType;
+                      }
+
+                      /*
+                      console.log(time.startTime, moment(time.startTime).calendar(), v.coverage, weatherRanks.coverage.indexOf(v.coverage), weatherRanks.intensity.indexOf(v.intensity), v.intensity, v.weatherType, v.qualifier);  
+                      */
+                    }
+
+                  });
+                  if (matchTimes>0) {
+                    var percentage = Math.floor((matchTimes*100)/totalTimes);
+
+                    var percentageDescriptor = "";
+                    if (percentage > 75) percentageDescriptor = "most of the time there will be";
+                    else if (percentage > 50) percentageDescriptor = "more than half of the time there will be";
+                    else if (percentage > 25) percentageDescriptor = "some of the time there will be";
+                    else percentageDescriptor = "for a small portion of the time there will be";
+
+                    if (maxCoverageIntensity == maxIntensity) {
+                      descriptor = percentageDescriptor + weatherRanks.coverageBefore[maxIntensityCoverage] + " " + weatherRanks.intensity[maxIntensity] + " " + maxCoverageType + weatherRanks.coverageAfter[maxIntensityCoverage];
+                    } else {
+                      descriptor = percentageDescriptor + weatherRanks.coverageBefore[maxCoverage] + " " + weatherRanks.intensity[maxCoverageIntensity] + " " + maxCoverageType + weatherRanks.coverageAfter[maxCoverage] + " with some" + weatherRanks.coverageBefore[maxIntensityCoverage] + " " + weatherRanks.intensity[maxIntensity] + " " + maxIntensityType + weatherRanks.coverageAfter[maxIntensityCoverage] ;
+                    }
+                  } else {
+                    descriptor = "the forecast doesn't call for any " + self.outcome.entities.inquiry_event[0].value + " in " + self.outcome.entities.location[0].value;
+                  }
+                  
+                  console.log(descriptor);
+
+
+
+                  break;
+              }   
+            } else {
+              console.log('no forecast available');
+            }
           });
           
           break;

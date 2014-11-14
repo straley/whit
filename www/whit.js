@@ -92,5 +92,64 @@ function Whit(inputText, sendButton, outputPane) {
   };
 }
 
+Whit.prototype.naturalDateRange = function(dateFrom, dateTo){
+  
+  var hours = ['very early %day% morning', 'very early %day% morning', 'very early %day% morning', 'early %day% morning', 
+               'early %day% morning', 'early %day% morning', '%day% morning', '%day% morning', 
+               '%day% morning', '%day% morning', 'late %day% morning', 'late %day% morning', 
+               'early %day% afternoon', 'early %day% afternoon', '%day% afternoon', '%day% afternoon',
+               'late %day% afternoon', 'early %day% evening', 'early %day% evening', '%day% evening',
+               '%day% evening', 'late %day% evening', 'late %day% evening', 'late %day% evening'
+              ];
+
+  var from = moment(dateFrom).calendar();
+  var to = dateTo?moment(dateTo).calendar():false;
+
+  var fromParts = from.split(/\s*at\s*/);
+  var toParts = to?to.split(/\s*at\s*/):false;
+
+  var timeFrom = Date.parse("1/1/1970 " + fromParts[1] + " Z");
+  var timeTo = toParts?Date.parse("1/1/1970 " + toParts[1] +" Z"):0;
+
+  if (timeFrom === 0 && timeTo === 0 && (Date.parse(dateFrom)-Date.parse(dateTo)) == -86400000) {
+      return fromParts[0].toLowerCase().replace(/^\s+/,'').replace(/\s+$/,'');
+  } else {
+    var shortDayFrom = fromParts[0].toLowerCase().replace(/^\s+/,'').replace(/\s+$/,'');
+    if (shortDayFrom != "today" && shortDayFrom != "tomorrow" && shortDayFrom != "yesterday") shortDayFrom = "in the";
+
+    var shortDayTo = toParts?toParts[0].toLowerCase().replace(/^\s+/,'').replace(/\s+$/,''):'';
+    if (shortDayTo != "today" && shortDayTo != "tomorrow" && shortDayTo != "yesterday") shortDayTo = "in the";
+
+    var fromShort = !isNaN(timeFrom)?hours[Math.floor(timeFrom/3600000)].replace(/%day%/g, shortDayFrom):'';
+    var toShort = toParts&&!isNaN(timeTo)?hours[Math.floor(timeTo/3600000)].replace(/%day%/g, shortDayTo):'';
+
+    var finalFrom = "";
+    var finalTo = "";
+    var final = "";
+    if (shortDayFrom == 'in the') {
+      finalFrom = fromShort + " on " + fromParts[0];
+    } else {
+      finalFrom = fromShort;
+    }
+
+    if (toParts) {
+      if (shortDayTo == 'in the') {
+        finalTo = toShort + " on " + toParts[0];
+      } else {
+        finalTo = toShort;
+      }
+      final = finalFrom + " to " + finalTo; 
+    } else {
+      final = finalFrom;
+    }
+
+    return final;  
+  }  
+};
+
+Whit.prototype.naturalDate = function(date){
+};
+
+
 var whit = new Whit($("#request"), $("#send"), $("#results"));
 // whit.listen();
